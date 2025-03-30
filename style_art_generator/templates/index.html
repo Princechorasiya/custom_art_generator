@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Custom Style Art Generator</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    .loading-spinner {
+      border: 4px solid rgba(0, 0, 0, 0.1);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border-left-color: #09f;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .image-preview {
+      max-width: 200px;
+      max-height: 200px;
+      object-fit: contain;
+      border: 1px solid #ddd;
+      margin: 5px;
+    }
+
+    #gallery {
+      display: flex;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+    }
+
+    .status-uploaded {
+      background-color: #FEF3C7;
+      color: #92400E;
+    }
+
+    .status-finetuning {
+      background-color: #DBEAFE;
+      color: #1E40AF;
+    }
+
+    .status-finetuned {
+      background-color: #D1FAE5;
+      color: #065F46;
+    }
+
+    .status-error {
+      background-color: #FEE2E2;
+      color: #DC2626;
+    }
+  </style>
+</head>
+
+<body class="bg-gray-100 min-h-screen">
+  <div class="container mx-auto px-4 py-8">
+    <header class="mb-8 text-center">
+      <h1 class="text-3xl font-bold text-gray-800">Custom Style Art Generator</h1>
+      <p class="text-gray-600 mt-2">Create artwork in your unique style using AI</p>
+    </header>
+
+    <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-md overflow-hidden mb-8">
+      <div class="p-6">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">Step 1: Upload Style Images</h2>
+        <p class="text-gray-600 mb-4">Upload 2-10 images that represent the artistic style you want to generate.</p>
+
+        <form id="uploadForm" class="mb-4">
+          <div class="flex flex-col space-y-4">
+            <div class="flex items-center justify-center w-full">
+              <label
+                class="flex flex-col w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+                <div class="flex flex-col items-center justify-center pt-7">
+                  <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                  </svg>
+                  <p class="pt-1 text-sm text-gray-500">Drop style images here or click to browse</p>
+                </div>
+                <input id="fileInput" type="file" class="hidden" multiple accept="image/*" />
+              </label>
+            </div>
+
+            <div id="gallery" class="hidden"></div>
+
+            <button type="submit" id="uploadButton"
+              class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-blue-500">
+              Upload Style Images
+            </button>
+          </div>
+        </form>
+
+        <div id="uploadStatus" class="hidden rounded-md p-4 mb-4"></div>
+      </div>
+    </div>
+
+    <div id="finetuningSection" class="max-w-4xl mx-auto bg-white rounded-lg shadow-md overflow-hidden mb-8 hidden">
+      <div class="p-6">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">Step 2: Fine-tune Model</h2>
+        <p class="text-gray-600 mb-4">Train the AI to generate images in your style. This may take 5-10 minutes.</p>
+
+        <div id="finetuneStatus" class="rounded-md p-4 mb-4 bg-gray-50">
+          <div class="flex items-center">
+            <span id="styleStatus" class="status-badge status-uploaded mr-2">Uploaded</span>
+            <span id="styleId" class="text-sm text-gray-500"></span>
+          </div>
+        </div>
+
+        <button id="finetuneButton"
+          class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-blue-500">
+          Start Fine-tuning
+        </button>
+      </div>
+    </div>
+
+    <div id="generationSection" class="max-w-4xl mx-auto bg-white rounded-lg shadow-md overflow-hidden hidden">
+      <div class="p-6">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">Step 3: Generate Artwork</h2>
+        <p class="text-gray-600 mb-4">Create images in your unique style using text prompts.</p>
+
+        <form id="generateForm" class="mb-4">
+          <div class="flex flex-col space-y-4">
+            <div>
+              <label for="prompt" class="block text-sm font-medium text-gray-700 mb-1">Prompt</label>
+              <textarea id="prompt" rows="3"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Describe what you want to generate..."></textarea>
+            </div>
+
+            <div>
+              <label for="negativePrompt" class="block text-sm font-medium text-gray-700 mb-1">Negative Prompt
+                (Optional)</label>
+              <textarea id="negativePrompt" rows="2"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Describe what you don't want in the image..."></textarea>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label for="guidanceScale" class="block text-sm font-medium text-gray-700 mb-1">Guidance Scale: <span
+                    id="guidanceScaleValue">7.5</span></label>
+                <input type="range" id="guidanceScale" min="1" max="20" step="0.1" value="7.5" class="w-full">
+              </div>
+
+              <div>
+                <label for="steps" class="block text-sm font-medium text-gray-700 mb-1">Steps: <span
+                    id="stepsValue">30</span></label>
+                <input type="range" id="steps" min="10" max="100" step="1" value="30" class="w-full">
+              </div>
+            </div>
+
+            <button type="submit" id="generateButton"
+              class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-green-500">
+              Generate Image
+            </button>
+          </div>
+        </form>
+
+        <div id="generationResult" class="hidden">
+          <h3 class="text-lg font-medium text-gray-800 mb-2">Generated Image</h3>
+          <div class="flex flex-col items-center">
+            <img id="resultImage" class="max-w-full h-auto rounded-md shadow-md mb-4">
+            <a id="downloadLink" href="#" download
+              class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-md transition-colors">
+              Download Image
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Global variables
+    let currentStyleId = null;
+    let uploadedFiles = [];
+
+    // DOM elements
+    const fileInput = document.getElementById('fileInput');
+    const uploadForm = document.getElementById('uploadForm');
+    const uploadButton = document.getElementById('uploadButton');
+    const uploadStatus = document.getElementById('uploadStatus');
+    const gallery = document.getElementById('gallery');
+
+    const finetuningSection = document.getElementById('finetuningSection');
+    const finetuneButton = document.getElementById('finetuneButton');
+    const finetuneStatus = document.getElementById('finetuneStatus');
+    const styleStatus = document.getElementById('styleStatus');
+    const styleId = document.getElementById('styleId');
+
+    const generationSection = document.getElementById('generationSection');
+    const generateForm = document.getElementById('generateForm');
+    const generateButton = document.getElementById('generateButton');
+    const generationResult = document.getElementById('generationResult');
+    const resultImage = document.getElementById('resultImage');
+    const downloadLink = document.getElementById('downloadLink');
+
+    const guidanceScale = document.getElementById('guidanceScale');
+    const guidanceScaleValue = document.getElementById('guidanceScaleValue');
+    const steps = document.getElementById('steps');
+    const stepsValue = document.getElementById('stepsValue');
+
+    // Event listeners
+    fileInput.addEventListener('change', handleFileSelect);
+    uploadForm.addEventListener('submit', handleUpload);
+    finetuneButton.addEventListener('click', handleFinetune);
+    generateForm.addEventListener('submit', handleGeneration);
+    guidanceScale.addEventListener('input', () => { guidanceScaleValue.textContent = guidanceScale.value; });
+    steps.addEventListener('input', () => { stepsValue.textContent = steps.value; });
+
+    // Functions
+    function handleFileSelect(event) {
+      const files = event.target.files;
+
+      if (files.length < 2 || files.length > 10) {
+        alert('Please select 2-10 images.');
+        return;
+      }
+
+      uploadedFiles = Array.from(files);
+
+      // Show preview
+      gallery.innerHTML = '';
+      gallery.classList.remove('hidden');
+
+      uploadedFiles.forEach(file => {
+        const reader = new FileReader();
+
+        reader.onload = function (e) {
+          const img = document.createElement('img');
+          img.src = e.target.result;
+          img.classList.add('image-preview');
+          gallery.appendChild(img);
+        };
+
+        reader.readAsDataURL(file);
+      });
+
+      uploadButton.disabled = false;
+    }
+
+    async function handleUpload(event) {
+      event.preventDefault();
+
+      if (uploadedFiles.length < 2 || uploadedFiles.length > 10) {
+        alert('Please select 2-10 images.');
+        return;
+      }
+
+      // Show loading state
+      uploadButton.disabled = true;
+      uploadButton.innerHTML = '<div class="loading-spinner mx-auto"></div>';
+
+      // Create form data
+      const formData = new FormData();
+      uploadedFiles.forEach(file => {
+        formData.append('files', file);
+      });
+
+      try {
+        const response = await fetch('/api/upload_style', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          // Success
+          uploadStatus.innerHTML = `
+                        <div class="bg-green-50 border-l-4 border-green-400 p-4">
+                            <div class="flex">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                                    </svg>
+                                </div>
+                                <div class="ml-3">
+                                    <p class="text-sm text-green-700">
+                                        Style images uploaded successfully! You can now proceed to fine-tuning.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+          uploadStatus.classList.remove('hidden');
+
+          // Set the style ID
+          currentStyleId = data.style_id;
+          styleId.textContent = `ID: ${currentStyleId}`;
+
+          // Show fine-tuning section
+          finetuningSection.classList.remove('hidden');
+
+        } else {
+          // Error
+          uploadStatus.innerHTML = `
+                        <div class="bg-red-50 border-l-4 border-red-400 p-4">
+                            <div class="flex">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                                    </svg>
+                                </div>
+                                <div class="ml-3">
+                                    <p class="text-sm text-red-700">
+                                        Error: ${data.error || 'Failed to upload images'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+          uploadStatus.classList.remove('hidden');
+        }
+      } catch (error) {
+        console.error('Upload error:', error);
+        uploadStatus.innerHTML = `
+                    <div class="bg-red-50 border-l-4 border-red-400 p-4">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-red-700">
+                                    Error: Network error, please try again.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+        uploadStatus.classList.remove('hidden');
+      } finally {
+        uploadButton.innerHTML = 'Upload Style Images';
+        uploadButton.disabled = false;
+      }
+    }
+
+    async function handleFinetune() {
+      if (!currentStyleId) {
+        alert('No style ID found. Please upload images first.');
+        return;
+      }
+
+      // Show loading state
+      finetuneButton.disabled = true;
+      finetuneButton.innerHTML = '<div class="loading-spinner mx-auto"></div>';
+
+      // Update status
+      styleStatus.textContent = 'Finetuning';
+      styleStatus.classList.remove('status-uploaded');
+      styleStatus.classList.add('status-finetuning');
+
+      try {
+        const response = await fetch('/api/finetune', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            style_id: currentStyleId
+          })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          // Start polling for status
+          const statusCheckInterval = setInterval(async () => {
+            const statusResponse = await fetch(`/api/status/${currentStyleId}`);
+            const statusData = await statusResponse.json();
+
+            if (statusResponse.ok) {
+              const status = statusData.status;
+
+              styleStatus.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+              styleStatus.className = 'status-badge';
+              styleStatus.classList.add(`status-${status}`);
+
+              if (status === 'finetuned') {
+                clearInterval(statusCheckInterval);
+
+                // Show generation section
+                generationSection.classList.remove('hidden');
+
+                // Update button
+                finetuneButton.innerHTML = 'Fine-tuning Completed';
+                finetuneButton.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+                finetuneButton.classList.add('bg-green-500', 'hover:bg-green-600');
+              } else if (status === 'error') {
+                clearInterval(statusCheckInterval);
+
+                // Update button
+                finetuneButton.innerHTML = 'Fine-tuning Failed';
+                finetuneButton.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+                finetuneButton.classList.add('bg-red-500', 'hover:bg-red-600');
+                finetuneButton.disabled = false;
+              }
+            }
+          }, 10000); // Check every 10 seconds
+
+        } else {
+          // Error
+          finetuneButton.innerHTML = 'Start Fine-tuning';
+          finetuneButton.disabled = false;
+
+          alert(`Error: ${data.error || 'Failed to start fine-tuning'}`);
+        }
+      } catch (error) {
+        console.error('Fine-tuning error:', error);
+
+        finetuneButton.innerHTML = 'Start Fine-tuning';
+        finetuneButton.disabled = false;
+
+        alert('Network error, please try again.');
+      }
+    }
+
+    async function handleGeneration(event) {
+      event.preventDefault();
+
+      if (!currentStyleId) {
+        alert('No style ID found. Please complete fine-tuning first.');
+        return;
+      }
+
+      const prompt = document.getElementById('prompt').value.trim();
+      if (!prompt) {
+        alert('Please enter a prompt.');
+        return;
+      }
+
+      // Show loading state
+      generateButton.disabled = true;
+      generateButton.innerHTML = '<div class="loading-spinner mx-auto"></div>';
+
+      // Hide previous result
+      generationResult.classList.add('hidden');
+
+      // Get form values
+      const negativePrompt = document.getElementById('negativePrompt').value.trim();
+      const guidanceScale = parseFloat(document.getElementById('guidanceScale').value);
+      const steps = parseInt(document.getElementById('steps').value);
+
+      try {
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            style_id: currentStyleId,
+            prompt,
+            negative_prompt: negativePrompt,
+            guidance_scale: guidanceScale,
+            steps
+          })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          // Success
+          const generationId = data.generation_id;
+
+          // Display the result
+          resultImage.src = `/api/result/${generationId}`;
+          downloadLink.href = `/api/result/${generationId}`;
+          downloadLink.download = `styled_image_${generationId}.png`;
+
+          // Show result section
+          generationResult.classList.remove('hidden');
+
+        } else {
+          // Error
+          alert(`Error: ${data.error || 'Failed to generate image'}`);
+        }
+      } catch (error) {
+        console.error('Generation error:', error);
+        alert('Network error, please try again.');
+      } finally {
+        generateButton.innerHTML = 'Generate Image';
+        generateButton.disabled = false;
+      }
+    }
+  </script>
+</body>
+
+</html>
